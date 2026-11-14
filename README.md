@@ -115,4 +115,4 @@ cmake --build build/core
 
 ## Licence
 
-GPLv3 (JUCE is used under its GPLv3 licence).
+GPLv3, see [LICENSE](LICENSE). JUCE is used under its GPLv3 licence.
