@@ -21,7 +21,9 @@ juce_add_plugin(LooperPlugin
     IS_MIDI_EFFECT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "Looper needs your audio input to record the loop.")
+    MICROPHONE_PERMISSION_TEXT "Looper needs your audio input to record the loop."
+    BLUETOOTH_PERMISSION_ENABLED TRUE
+    BLUETOOTH_PERMISSION_TEXT "Looper can connect to a Bluetooth MIDI footswitch.")
 
 target_sources(LooperPlugin PRIVATE
     PluginProcessor.cpp
