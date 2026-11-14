@@ -44,11 +44,6 @@ struct Timings
                  std::clamp(holdMs, kHoldMin, kHoldMax),
                  std::clamp(fadeMs, kFadeMin, kFadeMax) };
     }
-
-    bool operator== (const Timings& o) const
-    {
-        return multiTapMs == o.multiTapMs && holdMs == o.holdMs && fadeMs == o.fadeMs;
-    }
 };
 
 // Fixed (non-editable) timings.
