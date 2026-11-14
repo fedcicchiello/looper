@@ -208,6 +208,7 @@ The spacebar is deliberately not used, because most hosts reserve it for their t
 1. Click **Learn**. The plugin waits for a message.
 2. Press the footswitch.
 3. The plugin stores the message type (CC or Note), its number, and its channel. Channel can be specific or omni.
+4. **Polarity is learned too.** The first message received while learning is the press. If it is a CC with a value below 64, the switch is wired inverted (low on press, high on release, as on some footswitch inputs) and the plugin swaps the meaning of down and up for that CC. There is no separate setting for this. Learn again to change it.
 
 The learned mapping and the switch type are saved in the plugin state, which lives in the host project. Audio is never saved.
 

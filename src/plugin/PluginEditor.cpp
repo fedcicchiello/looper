@@ -335,15 +335,15 @@ void LooperEditor::paint (juce::Graphics& g)
     // Footer: hint, MIDI LED, meter
     auto footer = getLocalBounds().reduced (16).removeFromBottom (44);
     const bool mapped = processor_.getMapping().type != LooperProcessor::Mapping::Type::None;
-    if (! mapped)
     {
+        auto hintRow = footer.removeFromTop (18);
         g.setColour (kDim);
         g.setFont (13.0f);
-        g.drawText ("No MIDI switch mapped. Open Settings and click Learn.", footer.removeFromTop (18), juce::Justification::centredLeft);
-    }
-    else
-    {
-        footer.removeFromTop (18);
+        const auto last = processor_.lastMidiDescription();
+        if (last.isNotEmpty())
+            g.drawText ("Last MIDI: " + last, hintRow.removeFromRight (hintRow.getWidth() / 2), juce::Justification::centredRight);
+        if (! mapped)
+            g.drawText ("No MIDI switch mapped. Open Settings and click Learn.", hintRow, juce::Justification::centredLeft);
     }
 
     auto row = footer.removeFromTop (22);

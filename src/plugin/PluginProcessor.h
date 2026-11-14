@@ -20,11 +20,12 @@ public:
         Type type = Type::None;
         int number = 0;  // CC number or note number
         int channel = 1; // 1-16, ignored when the "any channel" option is on
+        bool invert = false; // CC only: the switch sends a low value on press and a high one on release
 
         uint32_t pack() const
         {
             return static_cast<uint32_t> (type) | (static_cast<uint32_t> (number & 0x7f) << 2)
-                   | (static_cast<uint32_t> ((channel - 1) & 0xf) << 9);
+                   | (static_cast<uint32_t> ((channel - 1) & 0xf) << 9) | (invert ? (1u << 13) : 0u);
         }
 
         static Mapping unpack (uint32_t v)
@@ -33,6 +34,7 @@ public:
             m.type = static_cast<Type> (v & 0x3);
             m.number = static_cast<int> ((v >> 2) & 0x7f);
             m.channel = static_cast<int> ((v >> 9) & 0xf) + 1;
+            m.invert = ((v >> 13) & 1u) != 0;
             return m;
         }
 
@@ -95,6 +97,7 @@ public:
 
     bool isSwitchDown() const { return switchDown_; }
     uint32_t midiActivityCount() const { return midiActivity_; }
+    juce::String lastMidiDescription() const; // most recent CC / note message, for diagnosis
     float takeInputPeak (int channel) { return inputPeak_[static_cast<size_t> (channel)].exchange (0.0f); }
     int numInputChannels() const { return numIn_; }
 
@@ -123,6 +126,7 @@ private:
 
     std::atomic<bool> switchDown_ { false };
     std::atomic<uint32_t> midiActivity_ { 0 };
+    std::atomic<uint32_t> lastMidi_ { 0 }; // kind (2 bits) | number << 2 | value << 9 | channel << 16
     std::array<std::atomic<float>, 2> inputPeak_ {};
 
     double preparedRate_ = 0.0;

@@ -10,7 +10,23 @@ juce::String LooperProcessor::Mapping::describe (bool anyChannel) const
 
     juce::String s = (type == Type::Cc ? "CC " : "Note ") + juce::String (number);
     s << (anyChannel ? ", any channel" : ", ch " + juce::String (channel));
+    if (invert)
+        s << ", inverted";
     return s;
+}
+
+juce::String LooperProcessor::lastMidiDescription() const
+{
+    const uint32_t v = lastMidi_.load();
+    const uint32_t kind = v & 0x3;
+    if (kind == 0)
+        return {};
+
+    const int number = static_cast<int> ((v >> 2) & 0x7f);
+    const int value = static_cast<int> ((v >> 9) & 0x7f);
+    const int channel = static_cast<int> ((v >> 16) & 0xf);
+    const char* name = kind == 1 ? "CC " : kind == 2 ? "Note On " : "Note Off ";
+    return juce::String (name) + juce::String (number) + " = " + juce::String (value) + "  (ch " + juce::String (channel) + ")";
 }
 
 LooperProcessor::LooperProcessor()
@@ -76,8 +92,9 @@ bool LooperProcessor::handleMidiMessage (const juce::MidiMessage& m, SwitchMode 
     {
         if (! m.isController() || m.getControllerNumber() != map.number)
             return false;
-        // Momentary: >= 64 is down, below is up. Latch: every message is a tap.
-        pressed = (mode == SwitchMode::Latch) || m.getControllerValue() >= 64;
+        // Momentary: >= 64 is down, below is up (the other way round if the switch is inverted).
+        // Latch: every message is a tap.
+        pressed = (mode == SwitchMode::Latch) || ((m.getControllerValue() >= 64) != map.invert);
         return true;
     }
 
@@ -161,11 +178,27 @@ void LooperProcessor::render (juce::AudioBuffer<float>& buffer, juce::MidiBuffer
         const auto msg = meta.getMessage();
         midiActivity_.fetch_add (1, std::memory_order_relaxed);
 
+        {
+            uint32_t kind = 0, number = 0, value = 0;
+            if (msg.isController())
+                kind = 1, number = static_cast<uint32_t> (msg.getControllerNumber()), value = static_cast<uint32_t> (msg.getControllerValue());
+            else if (msg.isNoteOn())
+                kind = 2, number = static_cast<uint32_t> (msg.getNoteNumber()), value = static_cast<uint32_t> (msg.getVelocity());
+            else if (msg.isNoteOff())
+                kind = 3, number = static_cast<uint32_t> (msg.getNoteNumber()), value = 0;
+            if (kind != 0)
+                lastMidi_ = kind | ((number & 0x7f) << 2) | ((value & 0x7f) << 9) | (static_cast<uint32_t> (msg.getChannel() & 0xf) << 16);
+        }
+
         if (learning_.load())
         {
             Mapping learned;
             if (msg.isController())
-                learned = { Mapping::Type::Cc, msg.getControllerNumber(), msg.getChannel() };
+            {
+                // The message that arrives while learning is the press. A low value means the
+                // switch is wired inverted (low on press, high on release).
+                learned = { Mapping::Type::Cc, msg.getControllerNumber(), msg.getChannel(), msg.getControllerValue() < 64 };
+            }
             else if (msg.isNoteOn())
                 learned = { Mapping::Type::Note, msg.getNoteNumber(), msg.getChannel() };
 
@@ -205,6 +238,7 @@ void LooperProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("mapType", static_cast<int> (m.type));
     xml.setAttribute ("mapNumber", m.number);
     xml.setAttribute ("mapChannel", m.channel);
+    xml.setAttribute ("mapInvert", m.invert);
     xml.setAttribute ("anyChannel", anyChannel_.load());
     xml.setAttribute ("latch", switchMode_.load() == SwitchMode::Latch);
     xml.setAttribute ("multiTapMs", multiTapMs_.load());
@@ -224,6 +258,7 @@ void LooperProcessor::setStateInformation (const void* data, int sizeInBytes)
     m.type = static_cast<Mapping::Type> (std::clamp (xml->getIntAttribute ("mapType", 0), 0, 2));
     m.number = xml->getIntAttribute ("mapNumber", 0);
     m.channel = std::clamp (xml->getIntAttribute ("mapChannel", 1), 1, 16);
+    m.invert = xml->getBoolAttribute ("mapInvert", false);
     mapping_ = m.pack();
 
     anyChannel_ = xml->getBoolAttribute ("anyChannel", false);
